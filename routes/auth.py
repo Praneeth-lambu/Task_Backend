@@ -8,6 +8,9 @@ auth_bp = Blueprint('auth', __name__)
 def get_user_management():
     return current_app.config['MONGO_DB'].User_management
 
+#home
+
+
 # Login
 @auth_bp.route("/login", methods=["POST"])
 def login():

@@ -23,5 +23,9 @@ def create_app():
     # CORS(app, resources={r"/*": {"origins": "*", "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"], "allow_headers": "*"}})
 
     CORS(app)
+
+    @app.route('/')
+    def home():
+        return 'Welcome to the Flask application!'
     
     return app
