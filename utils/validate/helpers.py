@@ -3,17 +3,34 @@ from flask import current_app
 from utils.hashing import hash_password
 from utils.validate.validations import *
 
-def validate_task_data(title, description, status, assigned_to, due_date):
+def validate_task_data(title, description, status, assigned_to, due_date, priority):
+   
+    # Validate title
     if not validate_title(title):
         return 'Title cannot be empty', 400
+    
+    # Validate description
     if not validate_description(description):
         return 'Description cannot be empty', 400
+    
+    # Validate status
     if not validate_status(status):
-        return 'Invalid status value', 400
+        return 'Invalid status value. Must be one of: Not Started, In Progress, Completed.', 400
+    
+    # Validate assigned_to
     if not validate_assigned_to(assigned_to):
         return 'Invalid assigned user', 400
+    
+    # Validate due_date
     if not validate_due_date(due_date):
-        return 'Invalid due date format', 400
+        return 'Invalid due date format. Must be in ISO format (e.g., 2024-12-31).', 400
+    
+    # Validate priority
+    valid_priorities = {"Low", "Medium", "High"}
+    if priority not in valid_priorities:
+        return 'Invalid priority value. Must be one of: Low, Medium, High.', 400
+    
+    # If all validations pass
     return None, None
 
 

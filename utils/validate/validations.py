@@ -1,16 +1,15 @@
-
 import datetime
 import re
 
-        #*********Users Validations***********
-# """Validate user name."""
+#*********Users Validations***********
 def validate_name(name):
+    """Validate user name."""
     return len(name) >= 4
 
-# """Validate user password."""
 def validate_password(password):
+    """Validate user password."""
     if password is None:
-        return True
+        return True  # Assuming None is allowed; adjust as needed
     if len(password) < 8:
         return False
     if not re.search(r'[A-Z]', password):
@@ -22,30 +21,38 @@ def validate_password(password):
     return True
 
 def validate_email(email):
-    import re
+    """Validate user email."""
     pattern = r'^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$'
     return re.match(pattern, email) is not None
 
-
-        #*********Tasks Validations***********
+#*********Tasks Validations***********
 def validate_title(title):
-    return len(title) > 0
+    """Validate task title."""
+    return len(title.strip()) > 0
 
 def validate_description(description):
-    return len(description) > 0
+    """Validate task description."""
+    return len(description.strip()) > 0
 
 def validate_status(status):
+    """Validate task status."""
     valid_statuses = ["pending", "in_progress", "done"]
     return status in valid_statuses
 
 def validate_assigned_to(assigned_to):
+    """Validate task assigned user."""
     # Check if assigned_to is a valid user ID or username
-    return len(assigned_to) > 0
+    return len(assigned_to.strip()) > 0
 
 def validate_due_date(due_date):
-
+    """Validate task due date."""
     try:
-        datetime.datetime.strptime(due_date, '%Y-%m-%d')  # Example date format YYYY-MM-DD
+        datetime.datetime.strptime(due_date, '%Y-%m-%d')  # Date format YYYY-MM-DD
         return True
     except ValueError:
         return False
+
+def validate_priority(priority):
+    """Validate task priority."""
+    valid_priorities = {"Low", "Medium", "High"}
+    return priority in valid_priorities

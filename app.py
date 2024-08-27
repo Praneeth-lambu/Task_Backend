@@ -1,3 +1,4 @@
+#app.py
 from flask import Flask, jsonify, render_template, request
 from pymongo import MongoClient
 from flask_cors import CORS
@@ -27,5 +28,9 @@ def create_app():
     @app.route('/')
     def home():
         return 'Welcome to the Flask application!'
+    
+    @app.route('/test')
+    def test():
+        return 'test route in run files'
     
     return app

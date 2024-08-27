@@ -1,4 +1,7 @@
+# models/task_model.py (or similar)
+from datetime import datetime
 from bson import ObjectId
+import re
 from flask import Blueprint, jsonify, request, current_app
 from routes.users import get_user_management
 from utils.jwt_manager import token_required
@@ -10,7 +13,18 @@ def get_task_management():
     return current_app.config['MONGO_DB'].Task_management
 
 def error_response(message, status_code):
-    return jsonify({'error': message}), status_code 
+    return jsonify({'error': message}), status_code
+
+def serialize_objectid(obj):
+    if isinstance(obj, ObjectId):
+        return str(obj)
+    elif isinstance(obj, dict):
+        return {k: serialize_objectid(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [serialize_objectid(item) for item in obj]
+    else:
+        return obj
+
 
 @tasks_bp.route("/getTask/", methods=["GET"])
 @token_required
@@ -27,25 +41,28 @@ def get_tasks(user_id):
     user_name = user.get("name").lower()  # Normalize case for comparison
 
     if user_role == 'admin':
-        tasks_cursor = Task_management.find()
+        tasks_cursor = Task_management.find().sort("priority", 1)  # Sort by priority
     else:
-        tasks_cursor = Task_management.find({"assigned_to": {"$regex": f"^{user_name}$", "$options": "i"}})
+        tasks_cursor = Task_management.find({"assigned_to": {"$regex": f"^{user_name}$", "$options": "i"}}).sort("priority", 1)
 
     tasks = []
     for task in tasks_cursor:
         tasks.append({
-            "_id": str(task["_id"]),
+            "_id": str(task["_id"]),  # Convert ObjectId to string
             "title": task.get("title"),
             "description": task.get("description"),
             "status": task.get("status"),
             "assigned_to": task.get("assigned_to"),
-            "due_date": task.get("due_date")
+            "due_date": task.get("due_date"),
+            "priority": task.get("priority"),
+            "comments": serialize_objectid(task.get("comments", []))  # Include comments
         })
 
     if tasks:
         return jsonify(tasks), 200
     else:
         return jsonify({'msg': "You don't have any tasks assigned to you."}), 404
+
 
 @tasks_bp.route("/getTask/<string:title>", methods=["GET"])
 @token_required
@@ -62,32 +79,51 @@ def get_task(user_id, title):
         user_role = user.get("role")
         user_name = user.get("name").lower()  # Normalize case for comparison
 
-        # Construct query based on user role
+        # Get description parameter from query string
+        description_query = request.args.get('description', '').strip()
+
+        # Sanitize the title and description to handle special characters
+        sanitized_title = re.escape(title)
+        sanitized_description = re.escape(description_query)
+
+        # Construct query based on user role and provided filters
         if user_role == 'admin':
-            query = {"title": {"$regex": title, "$options": "i"}}
+            query = {
+                "$or": [
+                    {"title": {"$regex": sanitized_title, "$options": "i"}},
+                    {"description": {"$regex": sanitized_description, "$options": "i"}}
+                ]
+            }
+            if sanitized_description:
+                query["description"] = {"$regex": sanitized_description, "$options": "i"}
         else:
             query = {
-                "title": {"$regex": title, "$options": "i"},
+                "$or": [
+                    {"title": {"$regex": sanitized_title, "$options": "i"}},
+                    {"description": {"$regex": sanitized_description, "$options": "i"}}
+                ],
                 "assigned_to": {"$regex": f"^{user_name}$", "$options": "i"}
             }
 
         # Fetch tasks based on the query
-        tasks = Task_management.find(query)
+        tasks = Task_management.find(query).sort("priority", 1)
         tasks_list = []
         for task in tasks:
             tasks_list.append({
-                "_id": str(task["_id"]),
+                "_id": str(task["_id"]),  # Convert ObjectId to string
                 "title": task.get("title"),
                 "description": task.get("description"),
                 "status": task.get("status"),
                 "assigned_to": task.get("assigned_to"),
-                "due_date": task.get("due_date")
+                "due_date": task.get("due_date"),
+                "priority": task.get("priority"),
+                "comments": serialize_objectid(task.get("comments", []))  # Include comments
             })
 
         if tasks_list:
             return jsonify(tasks_list), 200
         else:
-            return jsonify({'msg': "No tasks found with the specified title."}), 404
+            return jsonify({'msg': "No tasks found with the specified criteria."}), 404
 
     except Exception as e:
         return jsonify({'msg': f"An error occurred: {str(e)}"}), 500
@@ -96,7 +132,7 @@ def get_task(user_id, title):
 def add_task(user_id):
     Task_management = get_task_management()
     data = request.get_json()
-    required_fields = ["title", "description", "status", "assigned_to", "due_date"]
+    required_fields = ["title", "description", "status", "assigned_to", "due_date", "priority"]
 
     if not all(field in data for field in required_fields):
         return jsonify({'msg': "Missing fields in request"}), 400
@@ -106,8 +142,9 @@ def add_task(user_id):
     status = data["status"]
     assigned_to = data["assigned_to"]
     due_date = data["due_date"]
+    priority = data["priority"]
 
-    error_message, status_code = validate_task_data(title, description, status, assigned_to, due_date)
+    error_message, status_code = validate_task_data(title, description, status, assigned_to, due_date, priority)
     if error_message:
         return jsonify({'msg': error_message}), status_code
 
@@ -116,7 +153,9 @@ def add_task(user_id):
         "description": description,
         "status": status,
         "assigned_to": assigned_to,
-        "due_date": due_date
+        "due_date": due_date,
+        "priority": priority,
+        "comments": []  # Initialize comments as an empty list
     })
     return jsonify({'msg': "Task Added Successfully"}), 201
 
@@ -141,7 +180,7 @@ def update_task(user_id, id):
     Task_management = get_task_management()
     User_management = get_user_management()
     data = request.get_json()
-    required_fields = ["title", "description", "status", "assigned_to", "due_date"]
+    required_fields = ["title", "description", "status", "assigned_to", "due_date", "priority"]
 
     if not all(field in data for field in required_fields):
         return jsonify({'msg': "Missing fields in request"}), 400
@@ -151,8 +190,9 @@ def update_task(user_id, id):
     status = data["status"]
     assigned_to_name = data["assigned_to"]  # This is a name
     due_date = data["due_date"]
+    priority = data["priority"]
 
-    error_message, status_code = validate_task_data(title, description, status, assigned_to_name, due_date)
+    error_message, status_code = validate_task_data(title, description, status, assigned_to_name, due_date, priority)
     if error_message:
         return jsonify({'msg': error_message}), status_code
 
@@ -182,7 +222,8 @@ def update_task(user_id, id):
             "description": description,
             "status": status,
             "assigned_to": assigned_to_name,
-            "due_date": due_date
+            "due_date": due_date,
+            "priority": priority
         }}
     )
 
@@ -190,3 +231,62 @@ def update_task(user_id, id):
         return jsonify({'msg': "Task Details Updated Successfully"}), 200
     else:
         return jsonify({'msg': "Task does not exist"}), 404
+
+@tasks_bp.route("/addComment/<task_id>", methods=["POST"])
+@token_required
+def add_comment(user_id, task_id):
+    Task_management = get_task_management()
+    User_management = get_user_management()
+    data = request.get_json()
+    text = data.get("text")
+
+    if not text:
+        return jsonify({'msg': "Comment text is required"}), 400
+
+    try:
+        task_id = ObjectId(task_id)
+    except Exception:
+        return jsonify({'msg': "Invalid Task ID format"}), 400
+
+    user = User_management.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        return jsonify({'msg': 'User not found'}), 404
+
+    author_name = user.get("name", "Unknown")  # Get the author's name
+
+    Task_management.update_one(
+        {"_id": task_id},
+        {'$push': {
+            "comments": {
+                "text": text,
+                "user": ObjectId(user_id),
+                "author": author_name,  # Add author's name to the comment
+                "createdAt": datetime.utcnow()
+            }
+        }}
+    )
+
+    return jsonify({'msg': "Comment Added Successfully"}), 201
+
+@tasks_bp.route("/getComments/<task_id>", methods=["GET"])
+@token_required
+def get_comments(user_id, task_id):
+    Task_management = get_task_management()
+
+    try:
+        task_id = ObjectId(task_id)
+    except Exception:
+        return jsonify({'msg': "Invalid Task ID format"}), 400
+
+    task = Task_management.find_one({"_id": task_id})
+    if not task:
+        return jsonify({'msg': "Task not found"}), 404
+
+    comments = task.get("comments", [])
+    
+    # Convert ObjectId to string for serialization
+    for comment in comments:
+        comment['user'] = str(comment.get('user'))  # Ensure 'user' field is a string
+        comment['createdAt'] = comment.get('createdAt', datetime.utcnow()).isoformat()  # Format datetime
+
+    return jsonify(comments), 200
