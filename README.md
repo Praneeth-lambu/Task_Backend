@@ -4,10 +4,14 @@ This Flask-based API provides functionalities for user management and task manag
 
 
 ## Features
-User Authentication: Register, login, and logout functionalities.
-User Management: Add, update, delete, and retrieve users.
-Task Management: Create, retrieve, update, and delete tasks.
-Comments on Tasks: Add and retrieve comments for tasks.
+### User Authentication:
+ Register, login, and logout functionalities.
+### User Management:
+ Add, update, delete, and retrieve users.
+### Task Management:
+ Create, retrieve, update, and delete tasks.
+### Comments on Tasks:
+ Add and retrieve comments for tasks.
 
 
 ## Setup
