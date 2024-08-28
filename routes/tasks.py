@@ -1,4 +1,4 @@
-# models/task_model.py (or similar)
+# models/tasks.py (or similar)
 from datetime import datetime
 from bson import ObjectId
 import re
@@ -9,12 +9,15 @@ from utils.validate.helpers import validate_task_data
 
 tasks_bp = Blueprint('tasks', __name__)
 
+#Task managemenet collection
 def get_task_management():
     return current_app.config['MONGO_DB'].Task_management
 
+#handle Error response
 def error_response(message, status_code):
     return jsonify({'error': message}), status_code
 
+# serialize_objectid for comments 
 def serialize_objectid(obj):
     if isinstance(obj, ObjectId):
         return str(obj)
@@ -25,7 +28,7 @@ def serialize_objectid(obj):
     else:
         return obj
 
-
+#get all Tasks
 @tasks_bp.route("/getTask/", methods=["GET"])
 @token_required
 def get_tasks(user_id):
@@ -41,9 +44,9 @@ def get_tasks(user_id):
     user_name = user.get("name").lower()  # Normalize case for comparison
 
     if user_role == 'admin':
-        tasks_cursor = Task_management.find().sort("priority", 1)  # Sort by priority
+        tasks_cursor = Task_management.find().sort("priority", -1)  # Ascending order
     else:
-        tasks_cursor = Task_management.find({"assigned_to": {"$regex": f"^{user_name}$", "$options": "i"}}).sort("priority", 1)
+        tasks_cursor = Task_management.find({"assigned_to": {"$regex": f"^{user_name}$", "$options": "i"}}).sort("priority", -1)
 
     tasks = []
     for task in tasks_cursor:
@@ -54,7 +57,7 @@ def get_tasks(user_id):
             "status": task.get("status"),
             "assigned_to": task.get("assigned_to"),
             "due_date": task.get("due_date"),
-            "priority": task.get("priority"),
+            "priority": task.get("priority_label"),  # Use priority_label for display
             "comments": serialize_objectid(task.get("comments", []))  # Include comments
         })
 
@@ -64,6 +67,7 @@ def get_tasks(user_id):
         return jsonify({'msg': "You don't have any tasks assigned to you."}), 404
 
 
+#get Task by title or description
 @tasks_bp.route("/getTask/<string:title>", methods=["GET"])
 @token_required
 def get_task(user_id, title):
@@ -79,12 +83,9 @@ def get_task(user_id, title):
         user_role = user.get("role")
         user_name = user.get("name").lower()  # Normalize case for comparison
 
-        # Get description parameter from query string
-        description_query = request.args.get('description', '').strip()
-
         # Sanitize the title and description to handle special characters
         sanitized_title = re.escape(title)
-        sanitized_description = re.escape(description_query)
+        sanitized_description = re.escape(title)
 
         # Construct query based on user role and provided filters
         if user_role == 'admin':
@@ -106,7 +107,7 @@ def get_task(user_id, title):
             }
 
         # Fetch tasks based on the query
-        tasks = Task_management.find(query).sort("priority", 1)
+        tasks = Task_management.find(query).sort("priority", -1)
         tasks_list = []
         for task in tasks:
             tasks_list.append({
@@ -116,7 +117,7 @@ def get_task(user_id, title):
                 "status": task.get("status"),
                 "assigned_to": task.get("assigned_to"),
                 "due_date": task.get("due_date"),
-                "priority": task.get("priority"),
+                "priority": task.get("priority_label"),  # Use priority_label for display
                 "comments": serialize_objectid(task.get("comments", []))  # Include comments
             })
 
@@ -127,6 +128,8 @@ def get_task(user_id, title):
 
     except Exception as e:
         return jsonify({'msg': f"An error occurred: {str(e)}"}), 500
+ 
+#Add Task
 @tasks_bp.route("/addTask", methods=["POST"])
 @token_required
 def add_task(user_id):
@@ -144,7 +147,16 @@ def add_task(user_id):
     due_date = data["due_date"]
     priority = data["priority"]
 
-    error_message, status_code = validate_task_data(title, description, status, assigned_to, due_date, priority)
+    priority_mapping = {
+        'Low': 1,
+        'Medium': 2,
+        'High': 3
+    }
+    
+    priority_numeric = priority_mapping.get(priority, 1)  # Default to 'Low' if not found
+    priority_label = priority  # Use the provided label for display
+
+    error_message, status_code = validate_task_data(title, description, status, assigned_to, due_date, priority_numeric)
     if error_message:
         return jsonify({'msg': error_message}), status_code
 
@@ -154,11 +166,13 @@ def add_task(user_id):
         "status": status,
         "assigned_to": assigned_to,
         "due_date": due_date,
-        "priority": priority,
+        "priority": priority_numeric,  # Numeric value for sorting
+        "priority_label": priority_label,  # String label for display
         "comments": []  # Initialize comments as an empty list
     })
     return jsonify({'msg': "Task Added Successfully"}), 201
 
+#Delete task
 @tasks_bp.route("/deleteTask/<id>", methods=["DELETE"])
 @token_required
 def delete_task(user_id, id):
@@ -174,6 +188,7 @@ def delete_task(user_id, id):
     else:
         return jsonify({'msg': "No task to delete"}), 404
 
+#Update Task
 @tasks_bp.route("/updateTask/<id>", methods=["PUT"])
 @token_required
 def update_task(user_id, id):
@@ -182,17 +197,30 @@ def update_task(user_id, id):
     data = request.get_json()
     required_fields = ["title", "description", "status", "assigned_to", "due_date", "priority"]
 
+    # Check if all required fields are present
     if not all(field in data for field in required_fields):
         return jsonify({'msg': "Missing fields in request"}), 400
 
     title = data["title"]
     description = data["description"]
     status = data["status"]
-    assigned_to_name = data["assigned_to"]  # This is a name
+    assigned_to_name = data["assigned_to"]
     due_date = data["due_date"]
     priority = data["priority"]
 
-    error_message, status_code = validate_task_data(title, description, status, assigned_to_name, due_date, priority)
+    # Priority mapping from string to numeric for sorting
+    priority_mapping = {
+        'Low': 1,
+        'Medium': 2,
+        'High': 3
+    }
+    
+    # Convert priority to numeric and keep the label for display
+    priority_numeric = priority_mapping.get(priority, 1)  # Use None if not found
+    priority_label = priority  # Keep the string label for display
+
+    # Validate data
+    error_message, status_code = validate_task_data(title, description, status, assigned_to_name, due_date, priority_label)
     if error_message:
         return jsonify({'msg': error_message}), status_code
 
@@ -201,20 +229,24 @@ def update_task(user_id, id):
     except Exception:
         return jsonify({'msg': "Invalid ID format"}), 400
 
+    # Find the task to update
     task = Task_management.find_one({"_id": task_id})
     if not task:
         return jsonify({'msg': "Task not found"}), 404
 
+    # Find the current user
     current_user = User_management.find_one({"_id": ObjectId(user_id)})
     if not current_user:
         return jsonify({'msg': "User not found"}), 404
 
     current_user_name = current_user.get("name").lower()
     user_role = current_user.get("role")
-    
+
+    # Check if the user is authorized to update this task
     if user_role != 'admin' and task["assigned_to"].lower() != current_user_name:
         return jsonify({'msg': "Not authorized to update this task"}), 403
 
+    # Perform the update
     result = Task_management.update_one(
         {"_id": task_id},
         {'$set': {
@@ -223,7 +255,8 @@ def update_task(user_id, id):
             "status": status,
             "assigned_to": assigned_to_name,
             "due_date": due_date,
-            "priority": priority
+            "priority": priority_numeric,  # Numeric priority for sorting
+            "priority_label": priority_label  # String priority label for display
         }}
     )
 
@@ -232,6 +265,7 @@ def update_task(user_id, id):
     else:
         return jsonify({'msg': "Task does not exist"}), 404
 
+#Add comments
 @tasks_bp.route("/addComment/<task_id>", methods=["POST"])
 @token_required
 def add_comment(user_id, task_id):
@@ -268,6 +302,7 @@ def add_comment(user_id, task_id):
 
     return jsonify({'msg': "Comment Added Successfully"}), 201
 
+#Get comments
 @tasks_bp.route("/getComments/<task_id>", methods=["GET"])
 @token_required
 def get_comments(user_id, task_id):

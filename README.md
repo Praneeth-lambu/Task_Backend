@@ -15,14 +15,14 @@ This Flask-based API provides functionalities for user management and task manag
 
 
 ## Setup
-Prerequisites
-Python 3.7 or higher
-Flask
-Flask-CORS
-Flask-PyMongo
-PyMongo
-bcrypt
-JWT
+Prerequisites,
+Python 3.7 or higher,
+Flask,
+Flask-CORS,
+Flask-PyMongo,
+PyMongo,
+bcrypt,
+JWT,
 Werkzeug
 
 ## Installation

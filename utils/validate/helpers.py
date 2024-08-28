@@ -27,6 +27,9 @@ def validate_task_data(title, description, status, assigned_to, due_date, priori
     
     # Validate priority
     valid_priorities = {"Low", "Medium", "High"}
+    if isinstance(priority, int):
+        priority = {1: "Low", 2: "Medium", 3: "High"}.get(priority, None)
+    
     if priority not in valid_priorities:
         return 'Invalid priority value. Must be one of: Low, Medium, High.', 400
     

@@ -2,7 +2,8 @@ from flask import Blueprint, jsonify, request, current_app
 from bson import ObjectId
 from utils.hashing import hash_password
 from utils.validate.helpers import email_exists, get_user_id, validate_user_data
-from utils.jwt_manager import token_required  # Import the role check function
+from utils.jwt_manager import token_required
+from utils.role_decorator import role_required
 
 users_bp = Blueprint('users', __name__)
 
@@ -16,6 +17,7 @@ def error_response(message, status_code):
 # Get all users
 @users_bp.route("/getUser/", methods=["GET"])
 @token_required
+@role_required(['admin'])
 def get_all_users(user_id):
     User_management = get_user_management()
     users = []
@@ -33,16 +35,17 @@ def get_all_users(user_id):
     else:
         return jsonify({'msg': "No users found"}), 404
 
-
 # Get selected user by name
 @users_bp.route("/getUser/<string:name>", methods=["GET"])
 @token_required
+@role_required(['admin'])
 def get_user(user_id, name):
+    User_management = get_user_management()
     try:
-        User_management = get_user_management()
-        users = User_management.find({"name": {"$regex": name, "$options": "i"}})
+        # Find users by name using a case-insensitive regex search
+        users_cursor = User_management.find({"name": {"$regex": name, "$options": "i"}})
         users_list = []
-        for user in users:
+        for user in users_cursor:
             users_list.append({
                 "_id": str(user["_id"]),
                 "name": user.get("name"),
@@ -53,14 +56,14 @@ def get_user(user_id, name):
         if users_list:
             return jsonify(users_list), 200
         else:
-            return error_response("User does not exist", 404)
+            return jsonify({'msg': "No users found with the specified name."}), 404
     except Exception as e:
         return error_response(f"An error occurred: {str(e)}", 500)
-
 
 # Add a user
 @users_bp.route("/addUser", methods=["POST"])
 @token_required
+@role_required(['admin'])
 def add_user(user_id):
     data = request.get_json()
     required_fields = ["name", "email", "password"]
@@ -86,7 +89,6 @@ def add_user(user_id):
     if error_msg:
         return jsonify({'msg': error_msg}), status_code
 
-    # Check if the email already exists
     if email_exists(email):
         return jsonify({'msg': 'Email already exists'}), 409
 
@@ -104,10 +106,10 @@ def add_user(user_id):
 
     return jsonify({'msg': "User Added Successfully"}), 201
 
-
 # Delete a user
 @users_bp.route("/deleteUser/<id>", methods=["DELETE"])
 @token_required
+@role_required(['admin'])
 def delete_user(user_id, id):
     User_management = get_user_management()
     try:
@@ -124,6 +126,7 @@ def delete_user(user_id, id):
 # Update user details
 @users_bp.route("/updateUser/<id>", methods=["PUT"])
 @token_required
+@role_required(['admin'])
 def update_user(user_id, id):
     data = request.get_json()
     required_fields = ["name", "email"]

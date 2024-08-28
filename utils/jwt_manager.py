@@ -18,7 +18,6 @@ def encode_auth_token(user_id):
 def decode_auth_token(auth_token):
     try:
         payload = jwt.decode(auth_token, current_app.config['SECRET_KEY'], algorithms=['HS256'])
-        print("Decoded payload:", payload)  # For debugging
         return payload['sub']
     except jwt.ExpiredSignatureError:
         return 'Token expired. Please log in again.'
@@ -48,7 +47,7 @@ def token_required(f):
         except jwt.ExpiredSignatureError:
             return jsonify({'msg': 'Token has expired'}), 401
         except jwt.InvalidTokenError:
-            return jsonify({'msg': 'Invalid token'}), 401
+            return jsonify({'msg': 'Invalid token.Please log in again.'}), 401
 
         return f(user_id, *args, **kwargs)
 
