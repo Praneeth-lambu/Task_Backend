@@ -63,5 +63,6 @@ flask run
 ## The application will be available at http://127.0.0.1:5000/.
 
 ## Configuration
+Install latest mongodb server 
 MongoDB: The application is configured to connect to a MongoDB instance running on localhost:27017. Ensure that MongoDB is running and accessible.
 
