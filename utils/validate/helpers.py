@@ -46,9 +46,11 @@ def validate_user_data(name, email, password):
         return 'Password must be at least 8 characters long and include at least one uppercase letter, one lowercase letter, and one number', 400
     return None, None
 
+
 def email_exists(email, exclude_id=None):
     User_management = current_app.config['MONGO_DB'].User_management
-    query = {"email": email}
+    # Use a case-insensitive regex pattern to match the email
+    query = {"email": re.compile(f"^{re.escape(email)}$", re.IGNORECASE)}
     if exclude_id:
         query["_id"] = {"$ne": exclude_id}
     return User_management.find_one(query)

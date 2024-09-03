@@ -15,7 +15,7 @@ def get_user_management():
 @auth_bp.route("/login", methods=["POST"])
 def login():
     data = request.get_json()
-    usermail = data.get("email")
+    usermail = data.get("email").lower()
     password = data.get("password")
     
     User_management = get_user_management()
@@ -49,7 +49,7 @@ def register():
         return jsonify({'msg': "Missing fields in request"}), 400
 
     name = data["name"]
-    email = data["email"]
+    email = data["email"].lower()
     password = data["password"]
 
     # Validate user data

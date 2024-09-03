@@ -74,7 +74,7 @@ def add_user(user_id):
         return jsonify({'msg': "Missing fields in request"}), 400
 
     name = data["name"]
-    email = data["email"]
+    email = data["email"].lower()
     password = data["password"]
 
     # Optional role field, default to 'user'
@@ -136,7 +136,7 @@ def update_user(user_id, id):
         return jsonify({'msg': "Missing fields in request"}), 400
 
     name = data["name"]
-    email = data["email"]
+    email = data["email"].lower()
     password = data.get("password")  # Password is optional
     role = data.get("role")  # Role is also optional
 
