@@ -134,6 +134,9 @@ def get_task(user_id, title):
 @token_required
 def add_task(user_id):
     Task_management = get_task_management()
+    User_management = get_user_management() 
+
+
     data = request.get_json()
     required_fields = ["title", "description", "status", "assigned_to", "due_date", "priority"]
 
@@ -159,6 +162,11 @@ def add_task(user_id):
     error_message, status_code = validate_task_data(title, description, status, assigned_to, due_date, priority_numeric)
     if error_message:
         return jsonify({'msg': error_message}), status_code
+    
+    user_query = {"name": re.compile(f"^{re.escape(assigned_to)}$", re.IGNORECASE)}
+    assigned_user = User_management.find_one(user_query)
+    if not assigned_user:
+        return jsonify({'msg': "Assigned user not found"}), 404
 
     Task_management.insert_one({
         "title": title,
@@ -228,7 +236,10 @@ def update_task(user_id, id):
         task_id = ObjectId(id)
     except Exception:
         return jsonify({'msg': "Invalid ID format"}), 400
-
+    user_query = {"name": re.compile(f"^{re.escape(assigned_to_name)}$", re.IGNORECASE)}
+    assigned_user = User_management.find_one(user_query)
+    if not assigned_user:
+        return jsonify({'msg': "Assigned user not found"}), 404
     # Find the task to update
     task = Task_management.find_one({"_id": task_id})
     if not task:
