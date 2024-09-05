@@ -41,18 +41,23 @@ def verify_otp():
     user_otp = request.json.get('otp')
     
     if not email or not user_otp:
-        return jsonify({'error': 'Email and OTP are required'}), 400
-    
+        return jsonify({'success': False, 'message': 'Email and OTP are required'}), 400
+
+    # Validate OTP format
+    try:
+        user_otp = int(user_otp)
+    except ValueError:
+        return jsonify({'success': False, 'message': 'Invalid OTP format'}), 400
     # Fetch OTP and timestamp from store
     stored_otp, timestamp = otp_store.get(email, (None, None))
     current_time = datetime.now()
     
-    # Check if OTP exists and is within expiration time
+    ## Check if OTP exists and is within expiration time
     if stored_otp and stored_otp == user_otp:
         if current_time - timestamp < timedelta(minutes=5):  # 5-minute expiration
             del otp_store[email]  # Clear OTP after successful verification
-            return jsonify({'message': 'OTP verified successfully'})
+            return jsonify({'success': True, 'message': 'OTP verified successfully'})
         else:
-            return jsonify({'error': 'OTP expired'}), 400
+            return jsonify({'success': False, 'message': 'OTP expired'}), 400
     else:
-        return jsonify({'error': 'Invalid OTP'}), 400
+        return jsonify({'success': False, 'message': 'Invalid OTP'}), 400
