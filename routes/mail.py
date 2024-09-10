@@ -87,7 +87,7 @@ def request_reset():
     reset_token = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
     
     # Create the email message
-    reset_link = f'http://localhost:3000/reset?token={reset_token}'
+    reset_link = f'https://localhost:3000/reset?token={reset_token}'
     msg = Message('Password Reset Request', sender=current_app.config['MAIL_USERNAME'], recipients=[email])
     msg.body = f'Click the link below to reset your password:\n\n{reset_link}'
 
@@ -105,11 +105,11 @@ def request_reset():
 @mail_bp.route('/reset_password', methods=['POST'])
 def reset_password():
     token = request.json.get('token')
-    new_password = request.json.get('new_password')
+    new_password = request.json.get('password')
     print(token, new_password)
     
     if not token or not new_password:
-        return jsonify({'error': 'Token and new password are required'}), 400
+        return jsonify({'msg': 'Token and new password are required'}), 400
 
     # Fetch token and timestamp from store
     stored_email, timestamp = reset_token_store.get(token, (None, None))
@@ -147,10 +147,10 @@ def reset_password():
             )
             
             if result.matched_count > 0:
-                return jsonify({'success': True, 'message': 'Password reset successfully'}), 200
+                return jsonify({'success': True, 'msg': 'Password reset successfully'}), 200
             else:
-                return jsonify({'success': False, 'message': 'Failed to update password'}), 500
+                return jsonify({'success': False, 'msg': 'Failed to update password'}), 500
         else:
-            return jsonify({'success': False, 'message': 'Reset token expired'}), 400
+            return jsonify({'success': False, 'msg': 'Reset token expired'}), 400
     else:
-        return jsonify({'success': False, 'message': 'Invalid token'}), 400
+        return jsonify({'success': False, 'msg': 'Invalid token'}), 400

@@ -7,9 +7,12 @@ from routes.tasks import tasks_bp
 from routes.users import users_bp
 from routes.auth import auth_bp
 from routes.mail import mail_bp
+from dotenv import load_dotenv
 
 def create_app():
+    load_dotenv()
     app = Flask(__name__)
+
     
     # Register blueprints
     app.register_blueprint(mail_bp, url_prefix='/mail')
@@ -18,7 +21,7 @@ def create_app():
     app.register_blueprint(auth_bp, url_prefix='/auth')
 
     # Set the secret key for JWT
-    app.config['SECRET_KEY'] = 'A7C8489D681D2238728D6A8F9FD48'  # Replace with your actual secret key
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')  # Replace with your actual secret key
 
     # Initialize MongoDB client
     client = MongoClient('localhost', 27017)
@@ -28,8 +31,8 @@ def create_app():
     # Flask-Mail configuration
     app.config['MAIL_SERVER'] = 'smtp.gmail.com'
     app.config['MAIL_PORT'] = 587
-    app.config['MAIL_USERNAME'] = ''  # Use environment variable names
-    app.config['MAIL_PASSWORD'] = ''  # Use environment variable names
+    app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')  
+    app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD') 
     app.config['MAIL_USE_TLS'] = True
     app.config['MAIL_USE_SSL'] = False
 
