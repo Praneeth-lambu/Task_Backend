@@ -134,7 +134,7 @@ def get_task(user_id, title):
 @token_required
 def add_task(user_id):
     Task_management = get_task_management()
-    User_management = get_user_management() 
+    User_management = get_user_management()
 
 
     data = request.get_json()
@@ -168,6 +168,7 @@ def add_task(user_id):
     if not assigned_user:
         return jsonify({'msg': "Assigned user not found"}), 404
 
+    # Add the task with an initial history entry
     Task_management.insert_one({
         "title": title,
         "description": description,
@@ -176,7 +177,39 @@ def add_task(user_id):
         "due_date": due_date,
         "priority": priority_numeric,  # Numeric value for sorting
         "priority_label": priority_label,  # String label for display
-        "comments": []  # Initialize comments as an empty list
+        "comments": [],  # Initialize comments as an empty list
+        "history": [  # Initialize history with a creation record
+            {
+                "changed_by": "System",  # or "Admin" if preferred
+                "change_time": datetime.utcnow(),
+                "changes": {
+                    "title": {
+                        "old_value": None,
+                        "new_value": title
+                    },
+                    "description": {
+                        "old_value": None,
+                        "new_value": description
+                    },
+                    "status": {
+                        "old_value": None,
+                        "new_value": status
+                    },
+                    "assigned_to": {
+                        "old_value": None,
+                        "new_value": assigned_to
+                    },
+                    "due_date": {
+                        "old_value": None,
+                        "new_value": due_date
+                    },
+                    "priority": {
+                        "old_value": None,
+                        "new_value": priority_label
+                    }
+                }
+            }
+        ]
     })
     return jsonify({'msg': "Task Added Successfully"}), 201
 
@@ -257,10 +290,42 @@ def update_task(user_id, id):
     if user_role != 'admin' and task["assigned_to"].lower() != current_user_name:
         return jsonify({'msg': "Not authorized to update this task"}), 403
 
-    # Perform the update
-    result = Task_management.update_one(
-        {"_id": task_id},
-        {'$set': {
+    # Collect changes
+    changes = {}
+    if task.get("title") != title:
+        changes["title"] = {
+            "old_value": task.get("title"),
+            "new_value": title
+        }
+    if task.get("description") != description:
+        changes["description"] = {
+            "old_value": task.get("description"),
+            "new_value": description
+        }
+    if task.get("status") != status:
+        changes["status"] = {
+            "old_value": task.get("status"),
+            "new_value": status
+        }
+    if task.get("assigned_to") != assigned_to_name:
+        changes["assigned_to"] = {
+            "old_value": task.get("assigned_to"),
+            "new_value": assigned_to_name
+        }
+    if task.get("due_date") != due_date:
+        changes["due_date"] = {
+            "old_value": task.get("due_date"),
+            "new_value": due_date
+        }
+    if task.get("priority_label") != priority_label:
+        changes["priority"] = {
+            "old_value": task.get("priority_label"),
+            "new_value": priority_label
+        }
+
+            # Create the update operations
+    update_operations = {
+        "$set": {
             "title": title,
             "description": description,
             "status": status,
@@ -268,7 +333,23 @@ def update_task(user_id, id):
             "due_date": due_date,
             "priority": priority_numeric,  # Numeric priority for sorting
             "priority_label": priority_label  # String priority label for display
-        }}
+        }
+    }
+
+    # Conditionally add the $push operation if there are changes
+    if changes:
+        update_operations['$push'] = {
+            'history': {
+                "changed_by": current_user.get("name", "Unknown"),
+                "change_time": datetime.utcnow(),
+                "changes": changes
+            }
+        }
+
+# Perform the update operation
+    result = Task_management.update_one(
+        {"_id": task_id},
+        update_operations
     )
 
     if result.matched_count > 0:
@@ -336,3 +417,17 @@ def get_comments(user_id, task_id):
         comment['createdAt'] = comment.get('createdAt', datetime.utcnow()).isoformat()  # Format datetime
 
     return jsonify(comments), 200
+
+@tasks_bp.route("/getTaskHistory/<string:task_id>", methods=["GET"])
+@token_required
+def get_task_history(user_id, task_id):
+    try:
+        Task_management = get_task_management()
+
+        task = Task_management.find_one({"_id": ObjectId(task_id)}, {"history": 1})
+        if not task:
+            return jsonify({'msg': 'Task not found'}), 404
+
+        return jsonify({"history": task.get("history", [])}), 200
+    except Exception as e:
+        return jsonify({'msg': f"An error occurred: {str(e)}"}), 500
