@@ -56,6 +56,13 @@ source venv/bin/activate
 ### Install the required packages:
 pip install -r requirements.txt
 
+
+### Add .env file with following details
+SECRET_KEY=""  secret key details
+MAIL_USERNAME=""     the sender mail for app
+MAIL_PASSWORD=""    the password for the mail
+
+
 ### Run the application:
 flask run
 

@@ -10,7 +10,17 @@ node_modules/
 
 # Virtual environment
 .venv/
+<<<<<<< HEAD
 
 # Python cache files
 __pycache__/
 *.py[cod]
+=======
+# Byte-compiled / optimized / DLL files
+__pycache__/
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+>>>>>>> 60c63f8617bb920bfa9bb23d3d30115a17ef6af1

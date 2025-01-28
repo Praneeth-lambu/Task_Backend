@@ -45,7 +45,7 @@ def token_required(f):
                 return jsonify({'msg': 'Invalid token payload'}), 401
 
         except jwt.ExpiredSignatureError:
-            return jsonify({'msg': 'Token has expired'}), 401
+            return jsonify({'msg': 'Token has expired. Please relogin'}), 401
         except jwt.InvalidTokenError:
             return jsonify({'msg': 'Invalid token.Please log in again.'}), 401
 

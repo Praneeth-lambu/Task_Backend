@@ -59,7 +59,7 @@ def register():
 
     if email_exists(email):
         return jsonify({'msg': 'Email already exists'}), 409
-
+                                                  
     hashed_password = hash_password(password)
 
     User_management = get_user_management()
@@ -79,3 +79,30 @@ def logout(user_id):
     resp = jsonify({'msg': 'Successfully logged out'})
     resp.set_cookie('authToken', '', expires=0, httponly=True, secure=True, samesite='Strict')  # Remove auth token cookie
     return resp, 200
+
+@auth_bp.route("/email_check", methods=["POST"])
+def email_check():
+    # Extract JSON data from the request
+    data = request.get_json()
+    
+    # Ensure the request contains the 'email' field
+    if 'email' not in data:
+        return jsonify({'msg': 'Email field is required'}), 400
+    
+    email = data['email'].strip().lower()
+    
+    # Check if email is valid (basic format validation)
+    if not is_valid_email(email):
+        return jsonify({'msg': 'Invalid email format'}), 400
+    
+    # Check if email exists in the database
+    if email_exists(email):
+        return jsonify({'available': False}), 200
+    else:
+        return jsonify({'available': True}), 200
+
+def is_valid_email(email):
+    """Validate email format using a basic regex pattern"""
+    import re
+    email_regex = re.compile(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+    return email_regex.match(email) is not None
